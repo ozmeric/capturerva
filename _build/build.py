@@ -105,7 +105,7 @@ EVENTS = [
      "photos": [ev("bday-1", "UG_Baha_Bday_Photo_20250518_Time-181911_3wtrs2.jpeg", "Birthday guests posing with props in the Capture RVA photo booth"),
                 ev("bday-2", "Screenshot-2025-06-21-at-10.17.52 PM.png", "Birthday party photo booth picture by Capture RVA", 486, 726)]},
 ]
-LOGO = {"local": "assets/img/logo.png", "remote": "https://capturerva.com/wp-content/uploads/2024/12/cropped-cropped-CAPTURERVA-270x270.png"}
+LOGO = {"local": "assets/img/capture-rva-logo.png", "remote": "https://capturerva.com/wp-content/uploads/2024/12/cropped-cropped-CAPTURERVA-270x270.png"}
 
 def unsplash(pid, alt, w=1400):
     return {"remote": f"https://images.unsplash.com/photo-{pid}?auto=format&fit=crop&w={w}&q=75", "alt": alt, "stock": True, "w": 1400, "h": 1120}
@@ -208,7 +208,7 @@ def head(page):
 <meta name="description" content="{esc(page["desc"])}">
 <link rel="canonical" href="{canonical}">
 <meta name="robots" content="{'noindex' if page.get('noindex') else 'index, follow, max-image-preview:large'}">
-<meta name="theme-color" content="#3B0D2C">
+<meta name="theme-color" content="#0B4A4F">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Capture RVA">
 <meta property="og:title" content="{esc(page.get("og_title", page["title"]))}">
@@ -219,8 +219,8 @@ def head(page):
 <meta name="twitter:card" content="summary_large_image">
 <meta name="geo.region" content="US-VA">
 <meta name="geo.placename" content="Richmond">
-<link rel="icon" href="{img_src(LOGO)}" type="image/png">
-<link rel="apple-touch-icon" href="{img_src(LOGO)}">
+<link rel="icon" href="{asset('assets/img/favicon-48.png')}" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="{asset('assets/img/apple-touch-icon.png')}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap">
@@ -237,7 +237,7 @@ def header(active):
 <div class="offer">{esc(SITE["offer"])} <a href="{href("book/")}?package=drop-off">Check your date</a></div>
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="{href("")}" aria-label="Capture RVA home"><span class="brand-mark" aria-hidden="true"><span></span></span>Capture <b>RVA</b></a>
+    <a class="brand" href="{href("")}"><img src="{asset('assets/img/logo-horizontal-white.png')}" alt="Capture RVA" width="174" height="54"></a>
     <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav class="nav" id="site-nav" aria-label="Main">
       {links}
@@ -262,7 +262,7 @@ def footer(extra_js=""):
   <div class="wrap">
     <div class="cols">
       <div>
-        <a class="brand" href="{href("")}"><span class="brand-mark" aria-hidden="true"><span></span></span>Capture <b>RVA</b></a>
+        <a class="brand brand-stacked" href="{href("")}"><img src="{asset('assets/img/logo-stacked-white.png')}" alt="Capture RVA" width="106" height="111" loading="lazy"></a>
         <p>Photo booth rentals for weddings, birthdays and company events in {areas}, Virginia.</p>
       </div>
       <div>
@@ -806,8 +806,7 @@ def build():
         write("robots.txt", f"User-agent: *\nAllow: /\nDisallow: /_build/\nDisallow: /_backend/\nDisallow: /admin/\n\nSitemap: {SITE['domain']}/sitemap.xml\n")
         write("CNAME", "capturerva.com\n")
         # image manifest for the fetch script
-        manifest = [{"local": LOGO["local"], "url": LOGO["remote"]}] + \
-                   [{"local": p["local"], "url": p["remote"]} for e in EVENTS for p in e["photos"]]
+        manifest = [{"local": p["local"], "url": p["remote"]} for e in EVENTS for p in e["photos"]]
         with open(os.path.join(ROOT, "_build", "images.json"), "w") as f:
             json.dump(manifest, f, indent=1)
     print(f"Built {len(PAGES)} pages + {len(REDIRECTS)} redirects into {B.out} ({'preview' if B.preview else 'production'})")

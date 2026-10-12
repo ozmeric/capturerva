@@ -3,6 +3,6 @@
    (e.g. "https://capturerva-api.<your-subdomain>.workers.dev").
    Leave it empty to run the site in demo mode (no data is sent). */
 window.CRVA_CONFIG = {
-  apiUrl: "",
+  apiUrl: "https://capturerva.weblinallc.workers.dev/",
   bookingMonthsAhead: 18
 };

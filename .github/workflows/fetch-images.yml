@@ -1,0 +1,23 @@
+# One-time job: copies the event photos off the old WordPress site into this repo,
+# then rebuilds the pages so they use the self-hosted copies.
+name: Self-host photos
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pillow
+      - run: bash _build/fetch_images.sh
+      - run: python3 _build/build.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Self-host event photos"
+          git push

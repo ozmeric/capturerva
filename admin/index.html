@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Capture RVA Admin</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#3B0D2C">
+<meta name="theme-color" content="#0B4A4F">
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -17,11 +17,11 @@
 <style>
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; margin: 0; }
-  body { background: #2A0920; color: #F6EAF1; font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+  body { background: #F4FAF9; color: #0C2B2E; font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
   button, input, select, textarea { font: inherit; }
   button { cursor: pointer; }
-  :focus-visible { outline: 2px solid #FF3E6C; outline-offset: 2px; }
-  ::placeholder { color: #9A7A8E; }
+  :focus-visible { outline: 2px solid #0B7A75; outline-offset: 2px; }
+  ::placeholder { color: #7F9A9C; }
   .bottom-nav { display: none; }
   @media (max-width: 760px) {
     .desktop-sidebar { display: none !important; }
@@ -29,12 +29,12 @@
     .two-col { grid-template-columns: 1fr !important; }
   }
   .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-  .toggle { position: relative; width: 46px; height: 26px; border-radius: 999px; border: 0; background: #5A2A4A; flex: none; transition: background .15s; }
-  .toggle[aria-checked="true"] { background: #FF3E6C; }
+  .toggle { position: relative; width: 46px; height: 26px; border-radius: 999px; border: 0; background: #C5D9D7; flex: none; transition: background .15s; }
+  .toggle[aria-checked="true"] { background: #0B7A75; }
   .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
   .toggle[aria-checked="true"]::after { transform: translateX(20px); }
   @media (prefers-reduced-motion: reduce) { .toggle, .toggle::after { transition: none; } }
-  .spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ffffff33; border-top-color: #FF3E6C; animation: sp 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+  .spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #0B4A4F22; border-top-color: #0B7A75; animation: sp 0.8s linear infinite; display: inline-block; vertical-align: middle; }
   @keyframes sp { to { transform: rotate(360deg); } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -48,9 +48,10 @@ const CONFIG = {
   // ── Branding ──
   companyName:  "Capture RVA",
   companyShort: "Capture RVA",
-  primaryColor: "#3B0D2C",
-  accentColor:  "#FF3E6C",
+  primaryColor: "#0B4A4F",
+  accentColor:  "#34C6B8",
   logoText:     "C",
+  logoImage:    "./logo-square.png",
   poweredBy:    "Powered by BuildFlow — Weblina LLC",
 
   // ── Backend (Cloudflare Worker URL) ──
@@ -69,9 +70,9 @@ const e = React.createElement;
 
 // ── Palette (derived from CONFIG) ──
 const C = {
-  bg: "#2A0920", card: CONFIG.primaryColor, card2: "#4A1639", line: "#5E2A4D", deep: "#1F0618",
-  text: "#F6EAF1", soft: "#CDB3C3", faint: "#9A7A8E", accent: CONFIG.accentColor, gold: "#F2C14E",
-  green: "#3CCB8B", amber: "#F2B544", red: "#FF6B6B", blue: "#7FB8FF",
+  bg: "#F4FAF9", card: "#FFFFFF", card2: "#E4F4F2", line: "#D3E6E4", deep: "#F0F6F6",
+  text: "#0C2B2E", soft: "#4B6769", faint: "#7F9A9C", accent: CONFIG.accentColor, accentInk: "#0B7A75", gold: "#B7791F",
+  green: "#1B7F52", amber: "#A86A12", red: "#C0392B", blue: "#2563A8",
 };
 const STATUS_COLORS = {
   "New": C.accent, "Acknowledged": C.blue, "Needs reply": C.amber, "Replied": C.soft, "Quoted": C.gold, "Booked": C.green, "Lost": C.faint,
@@ -82,11 +83,11 @@ const STATUS_COLORS = {
 
 const S = {
   root: { display: "flex", flexDirection: "column", height: "100%", background: C.bg, color: C.text, overflow: "hidden" },
-  header: { background: C.card, borderBottom: "1px solid " + C.line, padding: "0 18px", paddingTop: "env(safe-area-inset-top, 0px)", minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
+  header: { background: CONFIG.primaryColor, color: "#FFFFFF", borderBottom: "1px solid " + CONFIG.primaryColor, padding: "0 18px", paddingTop: "env(safe-area-inset-top, 0px)", minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
   sidebar: { width: 220, background: C.card, borderRight: "1px solid " + C.line, overflowY: "auto", flexShrink: 0, padding: "10px 0" },
   content: { flex: 1, overflowY: "auto", padding: "20px 20px 96px" },
   card: { background: C.card, border: "1px solid " + C.line, borderRadius: 12, padding: 16, marginBottom: 12 },
-  input: { width: "100%", background: C.deep, border: "1px solid " + C.line, borderRadius: 8, padding: "10px 12px", color: C.text, fontSize: 14, outline: "none" },
+  input: { width: "100%", background: C.card, border: "1px solid " + C.line, borderRadius: 8, padding: "10px 12px", color: C.text, fontSize: 14, outline: "none" },
   label: { display: "block", fontSize: 12, fontWeight: 700, color: C.soft, marginBottom: 6 },
   h1: { fontSize: 24, fontWeight: 800, letterSpacing: "-0.4px", margin: "0 0 4px" },
   h2: { fontSize: 16, fontWeight: 800, margin: "0 0 10px" },
@@ -94,7 +95,7 @@ const S = {
   btn: (v) => v === "ghost"
     ? { background: "transparent", border: "1px solid " + C.line, color: C.soft, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }
     : v === "danger"
-      ? { background: "transparent", border: "1px solid #7A2A3A", color: C.red, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }
+      ? { background: "transparent", border: "1px solid #E7C1BB", color: C.red, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }
       : { background: C.accent, color: CONFIG.primaryColor, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 800 },
   sideItem: (active) => ({
     border: 0, borderLeft: "3px solid " + (active ? C.accent : "transparent"),
@@ -150,8 +151,8 @@ function Empty({ title, text, action }) {
 function Header() {
   return e("header", { style: S.header },
     e("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-      e("div", { style: { width: 32, height: 32, borderRadius: 8, background: CONFIG.accentColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: CONFIG.primaryColor } }, CONFIG.logoText),
-      e("span", { style: { fontWeight: 800, fontSize: 18, letterSpacing: "-0.5px" } }, CONFIG.companyName)),
+      e("img", { src: CONFIG.logoImage, alt: "", style: { width: 34, height: 34, borderRadius: 6, display: "block" } }),
+      e("span", { style: { fontWeight: 800, fontSize: 18, letterSpacing: "-0.5px", color: "#FFFFFF" } }, CONFIG.companyName)),
     e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9 } }));
 }
 
@@ -236,7 +237,7 @@ function TodayView() {
         e("div", { style: S.card },
           e("h2", { style: S.h2 }, "Connections"),
           ["ai", "facebook", "instagram"].map((k) => e("div", { key: k, style: { ...S.row, justifyContent: "space-between", padding: "6px 0" } },
-            e("span", null, { ai: "AI (Claude)", facebook: "Facebook Page", instagram: "Instagram" }[k]),
+            e("span", null, { ai: "AI (Gemini)", facebook: "Facebook Page", instagram: "Instagram" }[k]),
             e("span", { style: S.pill(data.connected[k] ? "Published" : "Failed") }, data.connected[k] ? "Connected" : "Not set up")))))));
 }
 
@@ -297,8 +298,8 @@ function ScheduleView() {
     const isSel = iso === sel, isToday = iso === todayIso();
     cells.push(e("button", { key: iso, type: "button", onClick: () => setSel(iso), "aria-pressed": isSel ? "true" : "false",
       "aria-label": fmtDay(iso) + (blocked[iso] ? ", blocked" : "") + (conf ? ", " + conf + " confirmed" : "") + (req ? ", " + req + " requested" : ""),
-      style: { minHeight: 74, borderRadius: 8, border: "1px solid " + (isSel ? C.accent : C.line), background: blocked[iso] ? "repeating-linear-gradient(45deg," + C.deep + "," + C.deep + " 6px," + C.card + " 6px," + C.card + " 12px)" : (conf >= cap ? "#2F5A45" : C.card), color: C.text, padding: 6, textAlign: "left", display: "flex", flexDirection: "column", gap: 3 } },
-      e("span", { style: { fontWeight: 800, fontSize: 13, color: isToday ? C.accent : C.text } }, d),
+      style: { minHeight: 74, borderRadius: 8, border: "1px solid " + (isSel ? C.accent : C.line), background: blocked[iso] ? "repeating-linear-gradient(45deg," + C.line + "," + C.line + " 6px," + C.card + " 6px," + C.card + " 12px)" : (conf >= cap ? "#DDF2E7" : C.card), color: C.text, padding: 6, textAlign: "left", display: "flex", flexDirection: "column", gap: 3 } },
+      e("span", { style: { fontWeight: 800, fontSize: 13, color: isToday ? C.accentInk : C.text } }, d),
       conf ? e("span", { style: { fontSize: 11, fontWeight: 700, color: C.green } }, conf + " booked") : null,
       req ? e("span", { style: { fontSize: 11, fontWeight: 700, color: C.amber } }, req + " request" + (req > 1 ? "s" : "")) : null,
       blocked[iso] ? e("span", { style: { fontSize: 11, color: C.soft } }, "Blocked") : null));
@@ -644,7 +645,7 @@ function App() {
         NAV.map(([k, label]) => e("button", { key: k, type: "button", "aria-current": view === k ? "page" : undefined, onClick: () => go(k),
           style: { flex: 1, background: "transparent", border: 0, color: view === k ? C.accent : C.soft, fontWeight: view === k ? 800 : 600, fontSize: 12, padding: "12px 2px", position: "relative" } },
           label, counts[k] ? e("span", { style: { ...S.badge, position: "absolute", top: 4, right: "18%", fontSize: 10, padding: "0 5px" } }, counts[k]) : null))),
-      toast ? e("div", { role: "status", style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: 84, background: toast.bad ? "#5A1A24" : "#1E4A36", color: C.text, border: "1px solid " + (toast.bad ? C.red : C.green), padding: "12px 18px", borderRadius: 10, fontWeight: 700, zIndex: 60, maxWidth: "92vw" } }, toast.msg) : null));
+      toast ? e("div", { role: "status", style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: 84, background: toast.bad ? "#8A2A22" : CONFIG.primaryColor, color: "#FFFFFF", border: "1px solid " + (toast.bad ? C.red : C.green), padding: "12px 18px", borderRadius: 10, fontWeight: 700, zIndex: 60, maxWidth: "92vw" } }, toast.msg) : null));
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(e(App));

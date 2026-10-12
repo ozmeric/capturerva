@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Capture RVA Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#3B0D2C">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Capture RVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; margin: 0; }
+  body { background: #2A0920; color: #F6EAF1; font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid #FF3E6C; outline-offset: 2px; }
+  ::placeholder { color: #9A7A8E; }
+  .bottom-nav { display: none; }
+  @media (max-width: 760px) {
+    .desktop-sidebar { display: none !important; }
+    .bottom-nav { display: flex; }
+    .two-col { grid-template-columns: 1fr !important; }
+  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .toggle { position: relative; width: 46px; height: 26px; border-radius: 999px; border: 0; background: #5A2A4A; flex: none; transition: background .15s; }
+  .toggle[aria-checked="true"] { background: #FF3E6C; }
+  .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .toggle[aria-checked="true"]::after { transform: translateX(20px); }
+  @media (prefers-reduced-motion: reduce) { .toggle, .toggle::after { transition: none; } }
+  .spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ffffff33; border-top-color: #FF3E6C; animation: sp 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+//<![CDATA[
+const CONFIG = {
+  // ── Branding ──
+  companyName:  "Capture RVA",
+  companyShort: "Capture RVA",
+  primaryColor: "#3B0D2C",
+  accentColor:  "#FF3E6C",
+  logoText:     "C",
+  poweredBy:    "Powered by BuildFlow — Weblina LLC",
+
+  // ── Backend (Cloudflare Worker URL) ──
+  apiUrl: "",   // e.g. "https://capturerva-api.YOURNAME.workers.dev"
+
+  // ── Lists ──
+  leadStatuses:    ["New", "Acknowledged", "Needs reply", "Replied", "Quoted", "Booked", "Lost"],
+  bookingStatuses: ["Requested", "Confirmed", "Cancelled"],
+  eventTypes:      ["Wedding", "Birthday", "Corporate or office party", "Holiday party", "School or graduation", "Community or nonprofit", "Other"],
+  platforms:       ["facebook", "instagram"],
+  weekdays:        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+};
+
+const { useState, useEffect, useRef, useContext, createContext } = React;
+const e = React.createElement;
+
+// ── Palette (derived from CONFIG) ──
+const C = {
+  bg: "#2A0920", card: CONFIG.primaryColor, card2: "#4A1639", line: "#5E2A4D", deep: "#1F0618",
+  text: "#F6EAF1", soft: "#CDB3C3", faint: "#9A7A8E", accent: CONFIG.accentColor, gold: "#F2C14E",
+  green: "#3CCB8B", amber: "#F2B544", red: "#FF6B6B", blue: "#7FB8FF",
+};
+const STATUS_COLORS = {
+  "New": C.accent, "Acknowledged": C.blue, "Needs reply": C.amber, "Replied": C.soft, "Quoted": C.gold, "Booked": C.green, "Lost": C.faint,
+  "Requested": C.amber, "Confirmed": C.green, "Cancelled": C.faint,
+  "Draft": C.amber, "Approved": C.blue, "Published": C.green, "Partly published": C.amber, "Failed": C.red, "Skipped": C.faint,
+  "Needs approval": C.amber, "Sent": C.green, "Received": C.blue, "Discarded": C.faint,
+};
+
+const S = {
+  root: { display: "flex", flexDirection: "column", height: "100%", background: C.bg, color: C.text, overflow: "hidden" },
+  header: { background: C.card, borderBottom: "1px solid " + C.line, padding: "0 18px", paddingTop: "env(safe-area-inset-top, 0px)", minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
+  sidebar: { width: 220, background: C.card, borderRight: "1px solid " + C.line, overflowY: "auto", flexShrink: 0, padding: "10px 0" },
+  content: { flex: 1, overflowY: "auto", padding: "20px 20px 96px" },
+  card: { background: C.card, border: "1px solid " + C.line, borderRadius: 12, padding: 16, marginBottom: 12 },
+  input: { width: "100%", background: C.deep, border: "1px solid " + C.line, borderRadius: 8, padding: "10px 12px", color: C.text, fontSize: 14, outline: "none" },
+  label: { display: "block", fontSize: 12, fontWeight: 700, color: C.soft, marginBottom: 6 },
+  h1: { fontSize: 24, fontWeight: 800, letterSpacing: "-0.4px", margin: "0 0 4px" },
+  h2: { fontSize: 16, fontWeight: 800, margin: "0 0 10px" },
+  sub: { color: C.soft, margin: "0 0 18px", fontSize: 14 },
+  btn: (v) => v === "ghost"
+    ? { background: "transparent", border: "1px solid " + C.line, color: C.soft, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }
+    : v === "danger"
+      ? { background: "transparent", border: "1px solid #7A2A3A", color: C.red, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }
+      : { background: C.accent, color: CONFIG.primaryColor, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 800 },
+  sideItem: (active) => ({
+    border: 0, borderLeft: "3px solid " + (active ? C.accent : "transparent"),
+    padding: "10px 18px", fontSize: 14, fontWeight: active ? 800 : 500, color: active ? C.text : C.soft,
+    background: active ? C.card2 : "transparent",
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", textAlign: "left",
+  }),
+  pill: (status) => ({ display: "inline-block", fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, color: STATUS_COLORS[status] || C.soft, border: "1px solid " + (STATUS_COLORS[status] || C.line), whiteSpace: "nowrap" }),
+  row: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  badge: { background: C.accent, color: CONFIG.primaryColor, borderRadius: 999, fontSize: 11, fontWeight: 800, padding: "1px 7px", minWidth: 20, textAlign: "center" },
+};
+
+// ── Helpers ──
+const pad = (n) => String(n).padStart(2, "0");
+const isoDay = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const parseDay = (s) => { const p = String(s).slice(0, 10).split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+const fmtDay = (s) => s ? parseDay(s).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "—";
+const fmtWhen = (s) => s ? new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+const todayIso = () => isoDay(new Date());
+const daysFromToday = (s) => Math.round((parseDay(s) - parseDay(todayIso())) / 86400000);
+const toLocalInput = (iso) => { if (!iso) return ""; const d = new Date(iso); return isoDay(d) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+
+const Ctx = createContext(null);
+const pkgName = (data, id) => { const p = (data.packages || []).find((x) => x.id === id || x.name === id); return p ? p.name : (id === "not-sure" ? "Not sure yet" : (id || "")); };
+
+async function apiCall(pin, action, extra) {
+  if (!CONFIG.apiUrl) throw new Error("Set CONFIG.apiUrl to your Cloudflare Worker URL first.");
+  const res = await fetch(CONFIG.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ pin, action }, extra || {})) });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "Something went wrong.");
+  return data;
+}
+
+// ── Small components ──
+function Field({ label, hint, children }) {
+  return e("label", { style: { display: "block", marginBottom: 14 } },
+    e("span", { style: S.label }, label),
+    hint ? e("span", { style: { display: "block", fontSize: 12, color: C.faint, margin: "-2px 0 6px" } }, hint) : null,
+    children);
+}
+
+function Toggle({ on, onChange, label }) {
+  return e("button", { type: "button", role: "switch", "aria-checked": on ? "true" : "false", "aria-label": label, className: "toggle", onClick: () => onChange(!on) });
+}
+
+function Empty({ title, text, action }) {
+  return e("div", { style: { ...S.card, textAlign: "left", padding: 22 } },
+    e("div", { style: { fontWeight: 800, marginBottom: 4 } }, title),
+    e("div", { style: { color: C.soft } }, text),
+    action ? e("div", { style: { marginTop: 12 } }, action) : null);
+}
+
+function Header() {
+  return e("header", { style: S.header },
+    e("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+      e("div", { style: { width: 32, height: 32, borderRadius: 8, background: CONFIG.accentColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: CONFIG.primaryColor } }, CONFIG.logoText),
+      e("span", { style: { fontWeight: 800, fontSize: 18, letterSpacing: "-0.5px" } }, CONFIG.companyName)),
+    e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9 } }));
+}
+
+// ── Login ──
+function Login({ onAuthed }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (ev) => {
+    ev.preventDefault();
+    if (!pin) { setErr("Enter your PIN."); return; }
+    setBusy(true); setErr("");
+    try { await apiCall(pin, "auth"); onAuthed(pin); }
+    catch (x) { setErr(x.message); }
+    finally { setBusy(false); }
+  };
+  return e("div", { style: { ...S.root } }, e(Header),
+    e("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      e("form", { onSubmit: submit, style: { ...S.card, width: "100%", maxWidth: 360, padding: 26 } },
+        e("h1", { style: S.h1 }, "Admin sign in"),
+        e("p", { style: S.sub }, "Leads, schedule and social posts for " + CONFIG.companyName + "."),
+        e(Field, { label: "PIN" }, e("input", { id: "pin", type: "password", inputMode: "numeric", autoComplete: "current-password", value: pin, onChange: (ev) => setPin(ev.target.value), style: S.input })),
+        err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, marginBottom: 12 } }, err) : null,
+        e("button", { type: "submit", style: { ...S.btn(), width: "100%" }, disabled: busy }, busy ? "Signing in…" : "Sign in"),
+        e("p", { style: { color: C.faint, fontSize: 12, marginTop: 16, marginBottom: 0 } }, CONFIG.poweredBy))));
+}
+
+// ── Today ──
+function TodayView() {
+  const { data, go, openLead } = useContext(Ctx);
+  const needs = data.leads.filter((l) => ["New", "Acknowledged", "Needs reply"].includes(l.status));
+  const drafts = data.messages.filter((m) => m.status === "Needs approval");
+  const upcoming = data.bookings.filter((b) => b.status === "Confirmed" && daysFromToday(b.date) >= 0 && daysFromToday(b.date) <= 30).sort((a, b) => a.date.localeCompare(b.date));
+  const requested = data.bookings.filter((b) => b.status === "Requested" && daysFromToday(b.date) >= 0);
+  const postDrafts = data.posts.filter((p) => p.status === "Draft");
+  const st = data.settings;
+
+  const stat = (n, label, view) => e("button", { type: "button", onClick: () => go(view), style: { ...S.card, marginBottom: 0, textAlign: "left", color: C.text, flex: "1 1 150px" } },
+    e("div", { style: { fontSize: 30, fontWeight: 800, letterSpacing: "-1px", color: n ? C.text : C.faint, fontVariantNumeric: "tabular-nums" } }, n),
+    e("div", { style: { color: C.soft, fontWeight: 600 } }, label));
+
+  const auto = (on, label) => e("div", { style: { ...S.row, justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + C.line } },
+    e("span", null, label), e("span", { style: S.pill(on ? "Published" : "Skipped") }, on ? "On" : "Off"));
+
+  return e("div", null,
+    e("h1", { style: S.h1 }, "Today"),
+    e("p", { style: S.sub }, new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })),
+    e("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 } },
+      stat(needs.length, "Leads waiting on you", "leads"),
+      stat(drafts.length, "AI replies to approve", "leads"),
+      stat(requested.length, "Date requests", "schedule"),
+      stat(postDrafts.length, "Posts to approve", "social")),
+    e("div", { className: "two-col", style: { display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,.8fr)", gap: 16 } },
+      e("div", null,
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Needs your attention"),
+          needs.length + drafts.length === 0 ? e("p", { style: { color: C.soft, margin: 0 } }, "All caught up. New website leads show up here.") :
+          [...needs.map((l) => ({ l, why: l.status === "Needs reply" ? "Client replied" : (l.status === "Acknowledged" ? "Thank-you sent, follow up" : "New lead") })),
+            ...drafts.map((m) => ({ l: data.leads.find((x) => x.id === m.leadId), why: "AI reply waiting" }))]
+            .filter((x) => x.l).slice(0, 8).map((x, i) => e("button", { key: i, type: "button", onClick: () => openLead(x.l.id),
+              style: { display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "transparent", border: 0, borderTop: i ? "1px solid " + C.line : "0", padding: "10px 0", color: C.text, textAlign: "left" } },
+              e("span", null, e("strong", null, x.l.name), e("span", { style: { color: C.soft } }, " · " + (x.l.eventDate ? fmtDay(x.l.eventDate) : "no date"))),
+              e("span", { style: S.pill(x.why === "AI reply waiting" ? "Needs approval" : x.l.status) }, x.why)))),
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Next 30 days"),
+          upcoming.length === 0 ? e("p", { style: { color: C.soft, margin: 0 } }, "No confirmed events in the next 30 days.") :
+          upcoming.map((b) => e("div", { key: b.id, style: { display: "flex", gap: 14, padding: "10px 0", borderTop: "1px solid " + C.line } },
+            e("div", { style: { width: 54, textAlign: "center", flex: "none" } },
+              e("div", { style: { fontSize: 11, color: C.soft, fontWeight: 700 } }, parseDay(b.date).toLocaleDateString("en-US", { month: "short" })),
+              e("div", { style: { fontSize: 22, fontWeight: 800 } }, parseDay(b.date).getDate())),
+            e("div", { style: { minWidth: 0 } },
+              e("div", { style: { fontWeight: 700 } }, b.name + " · " + (b.package || "")),
+              e("div", { style: { color: C.soft } }, [b.eventType, b.venue, b.startTime].filter(Boolean).join(" · "))))))),
+      e("div", null,
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Autopilot"),
+          auto(st.autoAck === "on", "Thank-you email on new leads"),
+          auto(st.aiReplies === "on", "AI drafts replies to clients"),
+          auto(st.aiAutoSend === "on", "AI replies send without approval"),
+          auto(st.socialAuto === "on", "Social posts publish without approval"),
+          e("button", { type: "button", style: { ...S.btn("ghost"), marginTop: 12 }, onClick: () => go("settings") }, "Change in Settings")),
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Connections"),
+          ["ai", "facebook", "instagram"].map((k) => e("div", { key: k, style: { ...S.row, justifyContent: "space-between", padding: "6px 0" } },
+            e("span", null, { ai: "AI (Claude)", facebook: "Facebook Page", instagram: "Instagram" }[k]),
+            e("span", { style: S.pill(data.connected[k] ? "Published" : "Failed") }, data.connected[k] ? "Connected" : "Not set up")))))));
+}
+
+// ── Schedule ──
+function BookingModal({ booking, onClose }) {
+  const { act, data } = useContext(Ctx);
+  const [b, setB] = useState(Object.assign({ status: "Confirmed", package: data.packages[0].name }, booking));
+  const set = (k) => (ev) => setB(Object.assign({}, b, { [k]: ev.target.value }));
+  const save = async () => { if (!b.date) return; const ok = await act("saveBooking", { booking: b }, "Booking saved"); if (ok) onClose(); };
+  const del = async () => { const ok = await act("deleteBooking", { id: b.id }, "Booking deleted"); if (ok) onClose(); };
+  const inp = (k, type) => e("input", { id: "bk-" + k, type: type || "text", value: b[k] || "", onChange: set(k), style: S.input });
+  return e("div", { role: "dialog", "aria-modal": "true", "aria-label": "Booking", style: { position: "fixed", inset: 0, background: "#0008", zIndex: 50, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: 16 } },
+    e("div", { style: { ...S.card, width: "100%", maxWidth: 560, marginTop: 30 } },
+      e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 10 } }, e("h2", { style: { ...S.h2, margin: 0 } }, b.id ? "Edit booking" : "Add booking"),
+        e("button", { type: "button", onClick: onClose, style: S.btn("ghost") }, "Close")),
+      e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" } },
+        e(Field, { label: "Date" }, inp("date", "date")),
+        e(Field, { label: "Status" }, e("select", { id: "bk-status", value: b.status, onChange: set("status"), style: S.input }, CONFIG.bookingStatuses.map((s) => e("option", { key: s }, s)))),
+        e(Field, { label: "Client name" }, inp("name")),
+        e(Field, { label: "Email" }, inp("email", "email")),
+        e(Field, { label: "Phone" }, inp("phone", "tel")),
+        e(Field, { label: "Package" }, e("select", { id: "bk-package", value: b.package || "", onChange: set("package"), style: S.input }, data.packages.map((p) => e("option", { key: p.id, value: p.name }, p.name + " ($" + p.price + ")")), e("option", { value: "Custom" }, "Custom"))),
+        e(Field, { label: "Event type" }, e("select", { id: "bk-type", value: b.eventType || "", onChange: set("eventType"), style: S.input }, e("option", { value: "" }, "—"), CONFIG.eventTypes.map((t) => e("option", { key: t }, t)))),
+        e(Field, { label: "Venue" }, inp("venue")),
+        e(Field, { label: "Start time" }, inp("startTime", "time")),
+        e(Field, { label: "End time" }, inp("endTime", "time")),
+        e(Field, { label: "Price ($)" }, inp("price", "number")),
+        e(Field, { label: "Deposit paid ($)" }, inp("deposit", "number")),
+        e(Field, { label: "Attendant" }, inp("attendant")),
+        e(Field, { label: "Guests" }, inp("guests", "number"))),
+      e(Field, { label: "Notes" }, e("textarea", { id: "bk-notes", rows: 3, value: b.notes || "", onChange: set("notes"), style: S.input })),
+      e("div", { style: { ...S.row, justifyContent: "space-between" } },
+        b.id ? e("button", { type: "button", style: S.btn("danger"), onClick: del }, "Delete booking") : e("span"),
+        e("button", { type: "button", style: S.btn(), onClick: save, disabled: !b.date }, "Save booking"))));
+}
+
+function ScheduleView() {
+  const { data, act, openLead } = useContext(Ctx);
+  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [sel, setSel] = useState(todayIso());
+  const [modal, setModal] = useState(null);
+  const [reason, setReason] = useState("");
+
+  const byDate = {};
+  data.bookings.forEach((b) => { if (b.status !== "Cancelled") (byDate[b.date] = byDate[b.date] || []).push(b); });
+  const blocked = {}; data.blocked.forEach((r) => { blocked[String(r.date).slice(0, 10)] = r.reason || "Blocked"; });
+  const cap = Number(data.settings.boothsPerDay) || 1;
+
+  const first = month.getDay();
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push(e("div", { key: "b" + i }));
+  for (let d = 1; d <= days; d++) {
+    const iso = isoDay(new Date(month.getFullYear(), month.getMonth(), d));
+    const list = byDate[iso] || [];
+    const conf = list.filter((b) => b.status === "Confirmed").length;
+    const req = list.filter((b) => b.status === "Requested").length;
+    const isSel = iso === sel, isToday = iso === todayIso();
+    cells.push(e("button", { key: iso, type: "button", onClick: () => setSel(iso), "aria-pressed": isSel ? "true" : "false",
+      "aria-label": fmtDay(iso) + (blocked[iso] ? ", blocked" : "") + (conf ? ", " + conf + " confirmed" : "") + (req ? ", " + req + " requested" : ""),
+      style: { minHeight: 74, borderRadius: 8, border: "1px solid " + (isSel ? C.accent : C.line), background: blocked[iso] ? "repeating-linear-gradient(45deg," + C.deep + "," + C.deep + " 6px," + C.card + " 6px," + C.card + " 12px)" : (conf >= cap ? "#2F5A45" : C.card), color: C.text, padding: 6, textAlign: "left", display: "flex", flexDirection: "column", gap: 3 } },
+      e("span", { style: { fontWeight: 800, fontSize: 13, color: isToday ? C.accent : C.text } }, d),
+      conf ? e("span", { style: { fontSize: 11, fontWeight: 700, color: C.green } }, conf + " booked") : null,
+      req ? e("span", { style: { fontSize: 11, fontWeight: 700, color: C.amber } }, req + " request" + (req > 1 ? "s" : "")) : null,
+      blocked[iso] ? e("span", { style: { fontSize: 11, color: C.soft } }, "Blocked") : null));
+  }
+
+  const dayList = (byDate[sel] || []).concat(data.bookings.filter((b) => b.status === "Cancelled" && b.date === sel));
+  const stepMonth = (n) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1));
+
+  return e("div", null,
+    modal ? e(BookingModal, { booking: modal, onClose: () => setModal(null) }) : null,
+    e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 14 } },
+      e("div", null, e("h1", { style: S.h1 }, "Schedule"), e("p", { style: { ...S.sub, margin: 0 } }, cap + (cap > 1 ? " booths" : " booth") + " per day. Website shows a date as booked when it's full or blocked.")),
+      e("button", { type: "button", style: S.btn(), onClick: () => setModal({ date: sel }) }, "Add booking")),
+    e("div", { className: "two-col", style: { display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 16, alignItems: "start" } },
+      e("div", { style: S.card },
+        e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 10 } },
+          e("h2", { style: { ...S.h2, margin: 0 } }, month.toLocaleDateString("en-US", { month: "long", year: "numeric" })),
+          e("div", { style: S.row },
+            e("button", { type: "button", style: S.btn("ghost"), onClick: () => stepMonth(-1), "aria-label": "Previous month" }, "‹"),
+            e("button", { type: "button", style: S.btn("ghost"), onClick: () => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setSel(todayIso()); } }, "Today"),
+            e("button", { type: "button", style: S.btn("ghost"), onClick: () => stepMonth(1), "aria-label": "Next month" }, "›"))),
+        e("div", { className: "cal-grid", style: { marginBottom: 4 } }, CONFIG.weekdays.map((w) => e("div", { key: w, style: { fontSize: 11, fontWeight: 700, color: C.soft, textAlign: "center" } }, w))),
+        e("div", { className: "cal-grid" }, cells)),
+      e("div", { style: S.card },
+        e("h2", { style: S.h2 }, fmtDay(sel)),
+        dayList.length === 0 ? e("p", { style: { color: C.soft } }, blocked[sel] ? "This date is blocked: " + blocked[sel] : "Nothing on this date.") :
+          dayList.map((b) => e("div", { key: b.id, style: { borderTop: "1px solid " + C.line, padding: "12px 0" } },
+            e("div", { style: { ...S.row, justifyContent: "space-between" } }, e("strong", null, b.name || "Booking"), e("span", { style: S.pill(b.status) }, b.status)),
+            e("div", { style: { color: C.soft, margin: "4px 0 10px" } }, [b.package, b.eventType, b.venue, b.startTime && ("starts " + b.startTime), b.price && ("$" + b.price)].filter(Boolean).join(" · ")),
+            e("div", { style: S.row },
+              b.status === "Requested" ? e("button", { type: "button", style: S.btn(), onClick: () => act("confirmBooking", { id: b.id, sendEmail: true }, "Confirmed and emailed " + (b.name || "client")) }, "Confirm & email client") : null,
+              e("button", { type: "button", style: S.btn("ghost"), onClick: () => setModal(b) }, "Edit"),
+              b.leadId ? e("button", { type: "button", style: S.btn("ghost"), onClick: () => openLead(b.leadId) }, "Open lead") : null))),
+        e("div", { style: { borderTop: "1px solid " + C.line, paddingTop: 12, marginTop: 6 } },
+          blocked[sel]
+            ? e("button", { type: "button", style: S.btn("ghost"), onClick: () => act("unblockDate", { date: sel }, "Date unblocked") }, "Unblock this date")
+            : e("div", null,
+                e(Field, { label: "Block this date on the website", hint: "Vacation, maintenance or a private event." },
+                  e("input", { id: "block-reason", value: reason, onChange: (ev) => setReason(ev.target.value), placeholder: "Reason (only you see this)", style: S.input })),
+                e("button", { type: "button", style: S.btn("ghost"), onClick: async () => { if (await act("blockDate", { date: sel, reason }, "Date blocked")) setReason(""); } }, "Block date"))))));
+}
+
+// ── Leads ──
+function DraftCard({ m, lead }) {
+  const { act } = useContext(Ctx);
+  const [text, setText] = useState(m.body);
+  return e("div", { style: { ...S.card, background: C.card2, borderColor: C.amber } },
+    e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 8 } },
+      e("strong", null, "AI reply waiting for approval"), e("span", { style: S.pill("Needs approval") }, "Not sent")),
+    m.note ? e("div", { style: { color: C.amber, fontWeight: 700, marginBottom: 8 } }, m.note) : null,
+    e("textarea", { id: "draft-" + m.id, rows: 8, value: text, onChange: (ev) => setText(ev.target.value), style: S.input, "aria-label": "Edit AI reply" }),
+    e("div", { style: { ...S.row, marginTop: 10 } },
+      e("button", { type: "button", style: S.btn(), onClick: () => act("sendReply", { leadId: lead.id, body: text, draftId: m.id }, "Reply sent to " + lead.name) }, "Approve & send"),
+      e("button", { type: "button", style: S.btn("ghost"), onClick: () => act("discardDraft", { id: m.id }, "Draft discarded") }, "Discard")));
+}
+
+function LeadDetail({ lead, onBack }) {
+  const { data, act, go } = useContext(Ctx);
+  const [compose, setCompose] = useState("");
+  const [instr, setInstr] = useState("");
+  const msgs = data.messages.filter((m) => m.leadId === lead.id && m.status !== "Discarded").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const drafts = msgs.filter((m) => m.status === "Needs approval");
+  const thread = msgs.filter((m) => m.status !== "Needs approval");
+  const booking = data.bookings.find((b) => b.id === lead.bookingId || b.leadId === lead.id);
+  const info = [["Email", lead.email], ["Phone", lead.phone], ["Event date", fmtDay(lead.eventDate)], ["Package", pkgName(data, lead.package)], ["Event", lead.eventType],
+    ["Venue", lead.venue], ["Guests", lead.guests], ["Start time", lead.startTime], ["Came from", [lead.source, lead.page, lead.utm].filter(Boolean).join(" · ")], ["Received", fmtWhen(lead.createdAt)]];
+
+  return e("div", null,
+    e("button", { type: "button", style: { ...S.btn("ghost"), marginBottom: 14 }, onClick: onBack }, "‹ All leads"),
+    e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 14 } },
+      e("div", null, e("h1", { style: S.h1 }, lead.name), e("span", { style: S.pill(lead.status) }, lead.status)),
+      e("label", { style: S.row }, e("span", { style: { color: C.soft, fontWeight: 700 } }, "Status"),
+        e("select", { id: "lead-status", value: lead.status, onChange: (ev) => act("updateLead", { id: lead.id, patch: { status: ev.target.value } }, "Status updated"), style: { ...S.input, width: "auto" } },
+          CONFIG.leadStatuses.map((s) => e("option", { key: s }, s))))),
+    e("div", { className: "two-col", style: { display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,.9fr)", gap: 16, alignItems: "start" } },
+      e("div", null,
+        drafts.map((m) => e(DraftCard, { key: m.id, m, lead })),
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Conversation"),
+          (lead.notes || lead.message) ? e("div", { style: { padding: "10px 12px", borderRadius: 8, background: C.deep, marginBottom: 10, whiteSpace: "pre-wrap" } },
+            e("div", { style: { fontSize: 11, fontWeight: 800, color: C.soft, marginBottom: 4 } }, "FROM THE WEBSITE FORM"), lead.notes || lead.message) : null,
+          thread.length === 0 ? e("p", { style: { color: C.soft } }, "No emails yet.") :
+          thread.map((m) => e("div", { key: m.id, style: { padding: "10px 12px", borderRadius: 8, marginBottom: 8, background: m.direction === "in" ? C.deep : C.card2, marginLeft: m.direction === "in" ? 0 : 24, marginRight: m.direction === "in" ? 24 : 0 } },
+            e("div", { style: { ...S.row, justifyContent: "space-between", fontSize: 12, color: C.soft, marginBottom: 4 } },
+              e("span", { style: { fontWeight: 800 } }, m.direction === "in" ? lead.name : ({ ack: "Auto thank-you", ai: "AI reply", manual: "You", confirm: "Booking confirmation" }[m.kind] || "You")),
+              e("span", null, fmtWhen(m.createdAt) + (m.status === "Failed" ? " · failed" : ""))),
+            e("div", { style: { whiteSpace: "pre-wrap" } }, m.body || m.note)))),
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Reply"),
+          e(Field, { label: "Ask the AI to draft", hint: "Optional instruction, e.g. \"offer the Exclusive package\" or \"ask for the venue address\"." },
+            e("div", { style: { display: "flex", gap: 8 } },
+              e("input", { id: "ai-instr", value: instr, onChange: (ev) => setInstr(ev.target.value), style: S.input }),
+              e("button", { type: "button", style: { ...S.btn("ghost"), whiteSpace: "nowrap" }, onClick: async () => { if (await act("draftReply", { leadId: lead.id, instruction: instr }, "AI draft ready")) setInstr(""); } }, "Draft with AI"))),
+          e(Field, { label: "Or write it yourself" },
+            e("textarea", { id: "compose", rows: 5, value: compose, onChange: (ev) => setCompose(ev.target.value), style: S.input })),
+          e("button", { type: "button", style: S.btn(), disabled: !compose.trim(), onClick: async () => { if (await act("sendReply", { leadId: lead.id, body: compose }, "Reply sent to " + lead.name)) setCompose(""); } }, "Send reply"),
+          e("p", { style: { color: C.faint, fontSize: 12, marginBottom: 0 } }, "Replies go out from your Gmail in the same email thread."))),
+      e("div", null,
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Details"),
+          info.map(([k, v]) => v && v !== "—" ? e("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 0", borderTop: "1px solid " + C.line } },
+            e("span", { style: { color: C.soft } }, k), e("span", { style: { fontWeight: 600, textAlign: "right", overflowWrap: "anywhere" } }, v)) : null)),
+        e("div", { style: S.card },
+          e("h2", { style: S.h2 }, "Booking"),
+          booking ? e("div", null,
+            e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 8 } }, e("strong", null, fmtDay(booking.date)), e("span", { style: S.pill(booking.status) }, booking.status)),
+            booking.status === "Requested" ? e("button", { type: "button", style: S.btn(), onClick: () => act("confirmBooking", { id: booking.id, sendEmail: true }, "Confirmed and emailed " + lead.name) }, "Confirm & email client") : null,
+            e("button", { type: "button", style: { ...S.btn("ghost"), marginLeft: 8 }, onClick: () => go("schedule") }, "Open schedule"))
+          : e("div", null,
+              e("p", { style: { color: C.soft, marginTop: 0 } }, "No booking yet for this lead."),
+              e("button", { type: "button", style: S.btn("ghost"), onClick: () => act("saveBooking", { booking: { date: lead.eventDate || todayIso(), status: "Requested", leadId: lead.id, name: lead.name, email: lead.email, phone: lead.phone, eventType: lead.eventType, package: pkgName(data, lead.package), venue: lead.venue, guests: lead.guests, startTime: lead.startTime } }, "Booking created") }, "Create booking"))),
+        e("button", { type: "button", style: S.btn("danger"), onClick: async () => { if (await act("deleteLead", { id: lead.id }, "Lead deleted")) onBack(); } }, "Delete lead"))));
+}
+
+function LeadsView() {
+  const { data, leadId, openLead } = useContext(Ctx);
+  const [filter, setFilter] = useState("Open");
+  const [q, setQ] = useState("");
+  const lead = leadId ? data.leads.find((l) => l.id === leadId) : null;
+  if (lead) return e(LeadDetail, { lead, onBack: () => openLead(null) });
+
+  const draftsBy = {}; data.messages.forEach((m) => { if (m.status === "Needs approval") draftsBy[m.leadId] = true; });
+  const filters = { "Open": (l) => !["Booked", "Lost"].includes(l.status), "Waiting on you": (l) => ["New", "Acknowledged", "Needs reply"].includes(l.status) || draftsBy[l.id], "Booked": (l) => l.status === "Booked", "Lost": (l) => l.status === "Lost", "All": () => true };
+  const list = data.leads.filter(filters[filter]).filter((l) => !q || (l.name + " " + l.email + " " + l.venue).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+
+  return e("div", null,
+    e("h1", { style: S.h1 }, "Leads"),
+    e("p", { style: S.sub }, "Every website booking request and contact message. New leads get the thank-you email automatically."),
+    e("div", { style: { ...S.row, marginBottom: 14 } },
+      Object.keys(filters).map((f) => e("button", { key: f, type: "button", "aria-pressed": f === filter ? "true" : "false", onClick: () => setFilter(f),
+        style: { ...S.btn("ghost"), background: f === filter ? C.card2 : "transparent", color: f === filter ? C.text : C.soft, borderColor: f === filter ? C.accent : C.line } }, f)),
+      e("input", { id: "lead-search", type: "search", placeholder: "Search name, email, venue", value: q, onChange: (ev) => setQ(ev.target.value), style: { ...S.input, maxWidth: 260 } })),
+    list.length === 0 ? e(Empty, { title: "No leads here", text: filter === "Open" ? "When someone books or writes in on capturerva.com, they show up here." : "Try another filter." }) :
+    e("div", { style: { ...S.card, padding: 0 } }, list.map((l, i) => e("button", { key: l.id, type: "button", onClick: () => openLead(l.id),
+      style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, width: "100%", background: "transparent", border: 0, borderTop: i ? "1px solid " + C.line : 0, padding: "14px 16px", color: C.text, textAlign: "left" } },
+      e("div", { style: { minWidth: 0 } },
+        e("div", { style: { fontWeight: 800 } }, l.name, draftsBy[l.id] ? e("span", { style: { ...S.pill("Needs approval"), marginLeft: 8 } }, "AI reply waiting") : null),
+        e("div", { style: { color: C.soft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          [l.eventDate ? fmtDay(l.eventDate) : "No date", pkgName(data, l.package), l.eventType, l.venue].filter(Boolean).join(" · "))),
+      e("div", { style: { textAlign: "right" } }, e("span", { style: S.pill(l.status) }, l.status), e("div", { style: { fontSize: 12, color: C.faint, marginTop: 4 } }, fmtWhen(l.createdAt)))))));
+}
+
+// ── Social ──
+function PostCard({ p }) {
+  const { act, data } = useContext(Ctx);
+  const [cap, setCap] = useState(p.caption);
+  const [when, setWhen] = useState(toLocalInput(p.scheduledAt));
+  const [img, setImg] = useState(p.imageUrl);
+  const [plats, setPlats] = useState(String(p.platforms || "facebook,instagram").split(",").filter(Boolean));
+  const editable = ["Draft", "Approved", "Failed", "Partly published"].includes(p.status);
+  let lib = []; try { lib = JSON.parse(data.settings.photoLibrary || "[]"); } catch (x) {}
+  const patch = (extra) => Object.assign({ id: p.id, caption: cap, imageUrl: img, platforms: plats.join(","), scheduledAt: when ? new Date(when).toISOString() : p.scheduledAt }, extra || {});
+  const togglePlat = (pl) => setPlats(plats.includes(pl) ? plats.filter((x) => x !== pl) : plats.concat(pl));
+
+  return e("div", { style: { ...S.card, display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 14 } },
+    e("div", null,
+      e("img", { src: img, alt: "Post photo", style: { width: 120, height: 150, objectFit: "cover", borderRadius: 8, background: C.deep, display: "block" } }),
+      editable && lib.length ? e("select", { id: "img-" + p.id, "aria-label": "Change photo", value: img, onChange: (ev) => setImg(ev.target.value), style: { ...S.input, marginTop: 6, padding: "6px 8px", fontSize: 12 } },
+        lib.map((u) => e("option", { key: u, value: u }, u.split("/").pop()))) : null),
+    e("div", { style: { minWidth: 0 } },
+      e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 8 } },
+        e("span", { style: S.pill(p.status) }, p.status),
+        e("span", { style: { color: C.soft, fontSize: 12 } }, p.status === "Published" ? "Published " + fmtWhen(p.publishedAt) : "Scheduled " + fmtWhen(p.scheduledAt))),
+      editable ? e("textarea", { id: "cap-" + p.id, rows: 5, value: cap, onChange: (ev) => setCap(ev.target.value), style: S.input, "aria-label": "Caption" })
+               : e("div", { style: { whiteSpace: "pre-wrap", color: C.soft } }, p.caption),
+      p.error ? e("div", { style: { color: C.red, fontSize: 12, marginTop: 6 } }, p.error) : null,
+      editable ? e("div", { style: { ...S.row, marginTop: 10 } },
+        e("input", { id: "when-" + p.id, type: "datetime-local", value: when, onChange: (ev) => setWhen(ev.target.value), style: { ...S.input, width: "auto" }, "aria-label": "Post time" }),
+        CONFIG.platforms.map((pl) => e("label", { key: pl, style: { ...S.row, gap: 6, color: C.soft, fontWeight: 600 } },
+          e("input", { type: "checkbox", checked: plats.includes(pl), onChange: () => togglePlat(pl) }), pl === "facebook" ? "Facebook" : "Instagram"))) : null,
+      editable ? e("div", { style: { ...S.row, marginTop: 12 } },
+        p.status === "Draft" ? e("button", { type: "button", style: S.btn(), onClick: () => act("savePost", { post: patch({ status: "Approved" }) }, "Post approved and scheduled") }, "Approve") : null,
+        e("button", { type: "button", style: S.btn("ghost"), onClick: () => act("savePost", { post: patch() }, "Post saved") }, "Save changes"),
+        e("button", { type: "button", style: S.btn("ghost"), onClick: async () => { if (await act("savePost", { post: patch() }, null)) act("publishPost", { id: p.id }, "Published"); } }, "Publish now"),
+        e("button", { type: "button", style: S.btn("danger"), onClick: () => act("savePost", { post: { id: p.id, status: "Skipped" } }, "Post skipped") }, "Skip")) : null));
+}
+
+function SocialView() {
+  const { data, act } = useContext(Ctx);
+  const [tab, setTab] = useState("To approve");
+  const [count, setCount] = useState(3);
+  const [theme, setTheme] = useState("");
+  const groups = {
+    "To approve": data.posts.filter((p) => p.status === "Draft"),
+    "Scheduled": data.posts.filter((p) => p.status === "Approved"),
+    "Published": data.posts.filter((p) => p.status === "Published" || p.status === "Partly published"),
+    "Problems": data.posts.filter((p) => p.status === "Failed"),
+  };
+  const list = groups[tab].slice().sort((a, b) => tab === "Published" ? String(b.publishedAt).localeCompare(String(a.publishedAt)) : String(a.scheduledAt).localeCompare(String(b.scheduledAt)));
+  const auto = data.settings.socialAuto === "on";
+
+  return e("div", null,
+    e("h1", { style: S.h1 }, "Social posts"),
+    e("p", { style: S.sub }, "AI writes Facebook and Instagram posts from your event photos. " + (auto ? "Autopilot is on: new posts publish on schedule without approval." : "Autopilot is off: posts wait here for your approval.")),
+    !(data.connected.facebook && data.connected.instagram) ? e("div", { style: { ...S.card, borderColor: C.amber } },
+      e("strong", null, "Facebook or Instagram isn't connected yet. "), e("span", { style: { color: C.soft } }, "You can still draft and approve posts; they publish once the Meta keys are added to the backend.")) : null,
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Write new posts"),
+      e("div", { style: { ...S.row, alignItems: "flex-end" } },
+        e("label", null, e("span", { style: S.label }, "How many"), e("select", { id: "gen-count", value: count, onChange: (ev) => setCount(ev.target.value), style: { ...S.input, width: 90 } }, [1, 2, 3, 4, 5, 6, 7].map((n) => e("option", { key: n }, n)))),
+        e("label", { style: { flex: "1 1 240px" } }, e("span", { style: S.label }, "Theme (optional)"), e("input", { id: "gen-theme", value: theme, placeholder: "e.g. holiday party season, wedding showcase", onChange: (ev) => setTheme(ev.target.value), style: S.input })),
+        e("button", { type: "button", style: S.btn(), onClick: async () => { if (await act("generatePosts", { count, theme }, "New posts drafted")) { setTheme(""); setTab(auto ? "Scheduled" : "To approve"); } } }, "Write with AI")),
+      e("p", { style: { color: C.faint, fontSize: 12, marginBottom: 0 } }, "Every Sunday evening the AI also drafts next week's posts for your posting days (" + data.settings.postDays + " at " + data.settings.postTime + ").")),
+    e("div", { style: { ...S.row, marginBottom: 12 } }, Object.keys(groups).map((t) => e("button", { key: t, type: "button", "aria-pressed": t === tab ? "true" : "false", onClick: () => setTab(t),
+      style: { ...S.btn("ghost"), background: t === tab ? C.card2 : "transparent", color: t === tab ? C.text : C.soft, borderColor: t === tab ? C.accent : C.line } }, t + " (" + groups[t].length + ")"))),
+    list.length === 0 ? e(Empty, { title: "Nothing here", text: tab === "To approve" ? "Use Write with AI to draft posts." : "Posts move here as they're approved and published." }) :
+    list.map((p) => e(PostCard, { key: p.id + p.status, p })));
+}
+
+// ── Settings ──
+function SettingsView() {
+  const { data, act } = useContext(Ctx);
+  const [s, setS] = useState(Object.assign({}, data.settings));
+  const [lib, setLib] = useState(() => { try { return JSON.parse(data.settings.photoLibrary || "[]").join("\n"); } catch (x) { return ""; } });
+  const set = (k) => (ev) => setS(Object.assign({}, s, { [k]: ev.target.value }));
+  const flip = (k) => (v) => setS(Object.assign({}, s, { [k]: v ? "on" : "off" }));
+  const save = () => act("saveSettings", { settings: Object.assign({}, s, { photoLibrary: JSON.stringify(lib.split("\n").map((x) => x.trim()).filter(Boolean)) }) }, "Settings saved");
+  const days = String(s.postDays || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const toggleDay = (d) => setS(Object.assign({}, s, { postDays: (days.includes(d) ? days.filter((x) => x !== d) : days.concat(d)).sort((a, b) => CONFIG.weekdays.indexOf(a) - CONFIG.weekdays.indexOf(b)).join(",") }));
+
+  const switchRow = (k, title, desc, disabled) => e("div", { style: { display: "flex", justifyContent: "space-between", gap: 16, padding: "12px 0", borderTop: "1px solid " + C.line, opacity: disabled ? 0.5 : 1 } },
+    e("div", null, e("div", { style: { fontWeight: 800 } }, title), e("div", { style: { color: C.soft, fontSize: 13 } }, desc)),
+    e(Toggle, { on: s[k] === "on", onChange: disabled ? () => {} : flip(k), label: title }));
+  const txt = (k, label, hint, rows) => e(Field, { label, hint }, rows ? e("textarea", { id: "s-" + k, rows, value: s[k] || "", onChange: set(k), style: S.input }) : e("input", { id: "s-" + k, value: s[k] || "", onChange: set(k), style: S.input }));
+
+  return e("div", { style: { maxWidth: 820 } },
+    e("div", { style: { ...S.row, justifyContent: "space-between", marginBottom: 14 } },
+      e("div", null, e("h1", { style: S.h1 }, "Settings"), e("p", { style: { ...S.sub, margin: 0 } }, "Autopilot, email templates, posting schedule and photos.")),
+      e("button", { type: "button", style: S.btn(), onClick: save }, "Save settings")),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Autopilot"),
+      switchRow("autoAck", "Thank-you email on every new lead", "Sends the standard thank-you below the moment someone books or writes in."),
+      switchRow("aiReplies", "AI drafts replies when clients write back", "Checks the lead email threads every 10 minutes and writes a reply."),
+      switchRow("aiAutoSend", "Send AI replies without approval", "When off, AI replies wait in Leads for you to approve. Booking, payment, pricing or complaint messages always wait for you.", s.aiReplies !== "on"),
+      switchRow("socialAuto", "Publish social posts without approval", "When off, AI posts wait in Social for you to approve.")),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Thank-you email"),
+      e("p", { style: { color: C.soft, marginTop: 0, fontSize: 13 } }, "Placeholders: {{firstName}} {{dateLine}} {{eventDate}} {{package}} {{venue}} {{summary}} {{phoneLine}} {{website}}"),
+      txt("ackSubject", "Subject"), txt("ackBody", "Message", null, 9)),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Booking confirmation email"),
+      txt("confirmSubject", "Subject"), txt("confirmBody", "Message", "Sent when you tap Confirm & email client.", 8)),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Business details"),
+      e("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0 12px" } },
+        txt("notifyEmail", "Send lead alerts to", "Also used as reply-to on client emails."),
+        txt("businessPhone", "Phone in emails"),
+        txt("fromName", "Email sender name"),
+        e(Field, { label: "Booths available per day", hint: "A date shows as booked on the website once this many are confirmed." },
+          e("input", { id: "s-booths", type: "number", min: 1, value: s.boothsPerDay || "1", onChange: set("boothsPerDay"), style: S.input })))),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "What the AI knows"),
+      txt("aiKnowledge", "Business facts for replies", "Policies, service area, what's included. The AI only uses these facts and the package prices.", 6),
+      txt("aiSignature", "Sign-off name")),
+    e("div", { style: S.card },
+      e("h2", { style: S.h2 }, "Social posting"),
+      e(Field, { label: "Posting days" }, e("div", { style: S.row }, CONFIG.weekdays.map((d) => e("button", { key: d, type: "button", "aria-pressed": days.includes(d) ? "true" : "false", onClick: () => toggleDay(d),
+        style: { ...S.btn("ghost"), padding: "7px 11px", background: days.includes(d) ? C.card2 : "transparent", color: days.includes(d) ? C.text : C.soft, borderColor: days.includes(d) ? C.accent : C.line } }, d)))),
+      e(Field, { label: "Posting time" }, e("input", { id: "s-postTime", type: "time", value: s.postTime || "11:00", onChange: set("postTime"), style: { ...S.input, width: 160 } })),
+      txt("brandVoice", "Brand voice", null, 4),
+      txt("postIdeas", "Post ideas", "Topics the AI rotates through.", 4),
+      e(Field, { label: "Photo library", hint: "One public image URL per line (JPEG). Instagram needs photos on a public website, like capturerva.com/assets/img/." },
+        e("textarea", { id: "s-lib", rows: 6, value: lib, onChange: (ev) => setLib(ev.target.value), style: { ...S.input, fontSize: 12 } }))),
+    e("button", { type: "button", style: S.btn(), onClick: save }, "Save settings"),
+    e("p", { style: { color: C.faint, fontSize: 12 } }, CONFIG.poweredBy));
+}
+
+// ── App shell ──
+const NAV = [["today", "Today"], ["schedule", "Schedule"], ["leads", "Leads"], ["social", "Social"], ["settings", "Settings"]];
+
+function App() {
+  const [pin, setPin] = useState("");
+  const [data, setData] = useState(null);
+  const [view, setView] = useState("today");
+  const [leadId, setLeadId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [loadErr, setLoadErr] = useState("");
+  const toastTimer = useRef(null);
+
+  const showToast = (msg, bad) => {
+    setToast({ msg, bad });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), bad ? 6000 : 3000);
+  };
+
+  const load = async (p) => {
+    try { const d = await apiCall(p || pin, "getAll"); setData(d); setLoadErr(""); }
+    catch (x) { setLoadErr(x.message); }
+  };
+
+  useEffect(() => { if (pin) load(pin); }, [pin]);
+  useEffect(() => {
+    if (!pin) return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60000);
+    return () => clearInterval(t);
+  }, [pin]);
+
+  const act = async (action, extra, okMsg) => {
+    setBusy(true);
+    try {
+      const r = await apiCall(pin, action, extra);
+      await load();
+      if (okMsg) showToast(okMsg);
+      return r || true;
+    } catch (x) { showToast(x.message, true); return false; }
+    finally { setBusy(false); }
+  };
+
+  if (!pin) return e(Login, { onAuthed: setPin });
+
+  const go = (v) => { setView(v); setLeadId(null); };
+  const openLead = (id) => { setLeadId(id); setView("leads"); };
+  const counts = data ? {
+    leads: data.leads.filter((l) => ["New", "Acknowledged", "Needs reply"].includes(l.status)).length + data.messages.filter((m) => m.status === "Needs approval").length,
+    social: data.posts.filter((p) => p.status === "Draft").length,
+    schedule: data.bookings.filter((b) => b.status === "Requested" && daysFromToday(b.date) >= 0).length,
+  } : {};
+
+  const body = !data
+    ? e("div", { style: { padding: 30, color: C.soft } }, loadErr ? e("div", null, e("p", { style: { color: C.red, fontWeight: 700 } }, loadErr), e("button", { type: "button", style: S.btn(), onClick: () => load() }, "Try again")) : e("span", null, e("span", { className: "spin" }), "  Loading…"))
+    : view === "today" ? e(TodayView)
+    : view === "schedule" ? e(ScheduleView)
+    : view === "leads" ? e(LeadsView)
+    : view === "social" ? e(SocialView)
+    : view === "settings" ? e(SettingsView, { key: JSON.stringify(data.settings) })
+    : null;
+
+  return e(Ctx.Provider, { value: { data, act, go, openLead, leadId } },
+    e("div", { style: S.root },
+      e(Header),
+      e("div", { style: { display: "flex", flex: 1, minHeight: 0 } },
+        e("nav", { className: "desktop-sidebar", style: S.sidebar, "aria-label": "Main" },
+          NAV.map(([k, label]) => e("button", { key: k, type: "button", "aria-current": view === k ? "page" : undefined, onClick: () => go(k), style: S.sideItem(view === k) },
+            e("span", null, label), counts[k] ? e("span", { style: S.badge }, counts[k]) : null)),
+          e("div", { style: { padding: "16px 18px", color: C.faint, fontSize: 12 } },
+            busy ? e("span", null, e("span", { className: "spin" }), " Saving…") : null,
+            e("button", { type: "button", onClick: () => act("checkInbox", {}, "Inbox checked"), style: { ...S.btn("ghost"), marginTop: 10, width: "100%" } }, "Check email now"),
+            e("button", { type: "button", onClick: () => { setPin(""); setData(null); }, style: { ...S.btn("ghost"), marginTop: 8, width: "100%" } }, "Sign out"))),
+        e("main", { style: S.content }, body)),
+      e("nav", { className: "bottom-nav", "aria-label": "Main", style: { position: "fixed", left: 0, right: 0, bottom: 0, background: C.card, borderTop: "1px solid " + C.line, paddingBottom: "env(safe-area-inset-bottom, 0px)", zIndex: 40 } },
+        NAV.map(([k, label]) => e("button", { key: k, type: "button", "aria-current": view === k ? "page" : undefined, onClick: () => go(k),
+          style: { flex: 1, background: "transparent", border: 0, color: view === k ? C.accent : C.soft, fontWeight: view === k ? 800 : 600, fontSize: 12, padding: "12px 2px", position: "relative" } },
+          label, counts[k] ? e("span", { style: { ...S.badge, position: "absolute", top: 4, right: "18%", fontSize: 10, padding: "0 5px" } }, counts[k]) : null))),
+      toast ? e("div", { role: "status", style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: 84, background: toast.bad ? "#5A1A24" : "#1E4A36", color: C.text, border: "1px solid " + (toast.bad ? C.red : C.green), padding: "12px 18px", borderRadius: 10, fontWeight: 700, zIndex: 60, maxWidth: "92vw" } }, toast.msg) : null));
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(e(App));
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
+//]]>
+</script>
+</body>
+</html>

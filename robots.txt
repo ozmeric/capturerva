@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /_build/
+Disallow: /_backend/
+Disallow: /admin/
+
+Sitemap: https://capturerva.com/sitemap.xml
